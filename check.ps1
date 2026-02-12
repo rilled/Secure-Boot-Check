@@ -9,11 +9,15 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit 1
 }
 
-# Check if LogFile directory exists
+# Check if LogFile directory exists & file is specified
 if ($LogFile) {
     $logDir = Split-Path -Path $LogFile -Parent
     if (-not (Test-Path -Path $logDir)) {
         Write-Error "The directory for the log file does not exist: $logDir`nPlease create the directory or specify a valid path." -ForegroundColor Red
+        return
+    }
+    if (-not ($LogFile -match '\.[a-zA-Z0-9]+$')) {
+        Write-Error "No log file specified." -ForegroundColor Red
         return
     }
 }
@@ -21,7 +25,7 @@ if ($LogFile) {
 function Log {
     param([string]$Message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $line = "$timestamp - $Message"
+    $line = "[$timestamp] $Message"
     Write-Output $line
     if ($LogFile) {
         Add-Content -Path $LogFile -Value $line
@@ -29,6 +33,7 @@ function Log {
 }
 
 function Get-SecureBootCertStatus {
+    Log "Starting Secure Boot check on $env:COMPUTERNAME..."
     $sbEnabled = Confirm-SecureBootUEFI 2>$null
 
     if (-not $sbEnabled) {
@@ -64,20 +69,20 @@ function Get-SecureBootCertStatus {
 
     if ($foundCerts.Count -gt 0) {
         if ($Minimal) {
-            Log "Updated certificates: TRUE"
+            Log "Updated Secure Boot certificates: TRUE"
             return
         }
 
-        Log "Result: Updated Secure Boot certificates detected."
+        Log "Updated Secure Boot certificates: TRUE"
         Log "Detected 2023 certificate entries in UEFI db:"
         foreach ($c in $foundCerts) { Log "  - $c" }
     } else {
         if ($Minimal) {
-            Log "Updated certificates: FALSE"
+            Log "Updated Secure Boot certificates: FALSE"
             return
         }
 
-        Log "Result: New Secure Boot certificates NOT detected."
+        Log "Updated Secure Boot certificates: FALSE"
         Log "The UEFI Secure Boot database appears to contain only older certificates."
     }
 
